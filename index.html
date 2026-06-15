@@ -24,6 +24,7 @@
   --muted:#a8a8b4; --line:#2b2b36;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden;max-width:100%}
 body{
   background-color:var(--black); color:var(--white);
   font-family:'Nunito',sans-serif; font-size:15px;
@@ -69,7 +70,7 @@ html::after{
   -webkit-mask-image:linear-gradient(270deg,#000 30%,transparent);
   mask-image:linear-gradient(270deg,#000 30%,transparent);
 }
-.wrap{max-width:1500px;margin:0 auto;padding:18px;position:relative;z-index:1}
+.wrap{max-width:1500px;margin:0 auto;padding:18px;padding-top:calc(18px + env(safe-area-inset-top,0px));position:relative;z-index:1}
 
 /* ---------- Header ---------- */
 header{
@@ -193,7 +194,7 @@ table.stand td.pts{font-weight:900;color:var(--gold2);font-size:15px}
 tr.q1 td:first-of-type{box-shadow:inset 4px 0 0 var(--mex)}
 tr.q2 td:first-of-type{box-shadow:inset 4px 0 0 var(--mex)}
 tr.q3 td:first-of-type{box-shadow:inset 4px 0 0 #f6b40e}
-.flag{height:19px;width:28px;object-fit:cover;border-radius:3px;vertical-align:-4px;margin-right:8px;box-shadow:0 0 0 1px rgba(255,255,255,.22)}
+.flag{height:19px;width:28px;object-fit:cover;border-radius:3px;vertical-align:-4px;margin-right:8px;box-shadow:0 0 0 1px rgba(255,255,255,.22);flex-shrink:0}
 
 .gmatches{padding:6px 0 12px}
 .mrow{
@@ -222,7 +223,7 @@ input.sc[type=number]{-moz-appearance:textfield}
 /* winner highlight + animations */
 .win .nm{color:var(--gold2);font-size:17px}
 .win .flag{box-shadow:0 0 0 1px var(--gold),0 0 14px rgba(200,162,75,.7)}
-.cemoji{font-size:23px;line-height:1}
+.cemoji{font-size:23px;line-height:1;flex-shrink:0}
 .cemoji.pop{display:inline-block;animation:emojipop 1.3s cubic-bezier(.2,1.4,.4,1)}
 @keyframes emojipop{
   0%{transform:scale(0) rotate(-40deg);opacity:0}
@@ -410,7 +411,7 @@ tr.q3in td:first-of-type{box-shadow:inset 4px 0 0 #8fd14f}
 }
 .drawer.open{transform:none}
 .dhead{
-  position:sticky;top:0;z-index:2;padding:18px 20px 14px;
+  position:sticky;top:0;z-index:2;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 14px;
   background:linear-gradient(180deg,#15151e 75%,transparent);
   display:flex;align-items:center;gap:14px;
 }
@@ -480,10 +481,40 @@ tr.q3in td:first-of-type{box-shadow:inset 4px 0 0 #8fd14f}
 }
 .legend{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.3px;margin-bottom:14px}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 5px 0 12px}
+/* buton inapoi sus */
+#toTop{
+  position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:150;
+  width:48px;height:48px;border-radius:50%;border:1px solid var(--gold);
+  background:rgba(21,21,28,.92);color:var(--gold2);font-size:24px;font-weight:900;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+  box-shadow:0 4px 16px rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transform:translateY(12px);
+  transition:opacity .25s,transform .25s;
+}
+#toTop.show{opacity:1;pointer-events:auto;transform:none}
+#toTop:hover{border-color:var(--gold2);color:#fff}
 @media(max-width:560px){
   h1{font-size:25px} header img.logo{height:58px}
   .groups,.kogrid{grid-template-columns:1fr}
   .controls{margin-left:0}
+  /* randuri de meci mai compacte ca sa incapa numele lungi + emoji */
+  .mrow{gap:6px;padding:8px 10px}
+  .side{font-size:13.5px;gap:5px}
+  .win .nm{font-size:14.5px}
+  .cemoji{font-size:18px}
+  .flag{height:16px;width:24px;margin-right:6px}
+  input.sc{width:42px;height:36px;font-size:16px}
+  /* tabele (clasament grupa + loc 3) sa incapa pe ecran */
+  table.stand{font-size:12px}
+  table.stand th{padding:7px 3px}
+  table.stand td{padding:7px 3px}
+  table.stand td.tm{white-space:normal;font-size:12.5px;line-height:1.15}
+  table.stand th:first-child,table.stand td.tm{padding-left:8px}
+  .t3st{font-size:0}
+  .t3st::after{font-size:14px;font-weight:900;letter-spacing:0}
+  .t3st.in::after{content:"\2713";color:#8fd14f}
+  .t3st.out::after{content:"\2717";color:#888}
+  .q3badge{display:block;margin:2px 0 0;font-size:9px}
 }
 </style>
 </head>
@@ -542,6 +573,7 @@ tr.q3in td:first-of-type{box-shadow:inset 4px 0 0 #8fd14f}
 
 <div class="ovl" id="ovl" onclick="closeSquad()"></div>
 <div class="drawer" id="drawer"></div>
+<button id="toTop" aria-label="Inapoi sus" title="Inapoi sus">&#8593;</button>
 
 <script>
 /* ================= DATA ================= */
@@ -764,6 +796,13 @@ function timeInfo(date,time,vkey){
     cap:String(v[3]).replace(/\B(?=(\d{3})+(?!\d))/g,'.'),
     vf:`<img class="vflag" src="https://flagcdn.com/w20/${v[4]}.png" alt="">`
   };
+}
+/* moment absolut (UTC) al unui meci, pentru ordonare cronologica reala
+   indiferent de fusul orar al stadionului */
+function matchTs(m){
+  const [y,mo,d]=m[4].split('-').map(Number);
+  const [h,mi]=m[5].split(':').map(Number);
+  return Date.UTC(y,mo-1,d,h-V[m[6]][2],mi);
 }
 function getScore(id){
   const s=state.scores[id];
@@ -1854,7 +1893,7 @@ function groupCard(g,idx){
       <td>${r.gf}-${r.ga}</td><td>${r.gf-r.ga>0?'+':''}${r.gf-r.ga}</td>
       <td class="pts">${r.pts}</td>
     </tr>`}).join('');
-  const ms=GM.filter(m=>m[1]===g).map(m=>{
+  const ms=GM.filter(m=>m[1]===g).sort((a,b)=>matchTs(a)-matchTs(b)).map(m=>{
     const ti=timeInfo(m[4],m[5],m[6]);
     const s=getScore(m[0]);
     let winner=null,draw=false;
@@ -2037,6 +2076,15 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+// Buton "inapoi sus": apare cand am derulat in jos.
+(function(){
+  const btn=document.getElementById('toTop');
+  if(!btn)return;
+  const onScroll=()=>btn.classList.toggle('show', window.scrollY>400);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  btn.addEventListener('click', ()=>window.scrollTo({top:0,behavior:'smooth'}));
+  onScroll();
+})();
 </script>
 </body>
 </html>
