@@ -1,6 +1,6 @@
 // Service worker pentru dashboardul CM 2026 (PWA, functioneaza si offline).
 // Bump versiunea la fiecare modificare a HTML-ului ca sa se reimprospateze cache-ul.
-const CACHE = 'cm2026-v4';
+const CACHE = 'cm2026-v7';
 const CORE = [
   './',
   './index.html',
