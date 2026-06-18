@@ -144,6 +144,14 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 
 /* ---------- Toolbar / Tabs ---------- */
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.syncb{font-size:18px}
+.syncb.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.syncinfo{font-size:12px;opacity:.85;margin-left:2px;white-space:nowrap}
+.syncinfo.ok{color:#3cac3b}
+.syncinfo.err{color:#e61d25;opacity:1}
+.liveb{display:inline-block;color:#fff;background:#e61d25;padding:1px 8px;border-radius:7px;font-weight:800;font-size:11px;letter-spacing:.4px;vertical-align:middle;animation:livep 1.2s ease-in-out infinite}
+@keyframes livep{0%,100%{opacity:1}50%{opacity:.5}}
 .tabs{display:flex;flex-wrap:wrap;gap:8px}
 .tab{
   font-weight:900;font-size:15px;letter-spacing:1px;text-transform:uppercase;
@@ -554,6 +562,9 @@ tr.q3in td:first-of-type{box-shadow:inset 4px 0 0 #8fd14f}
 <div class="toolbar">
   <div class="tabs" id="tabs"></div>
   <div class="controls">
+    <button class="ubtn syncb" id="syncB" onclick="syncScores(true)" title="Trage scorurile de pe net acum">&#10227;</button>
+    <span class="syncinfo" id="syncInfo"></span>
+    <span class="syncinfo" id="eloInfo"></span>
     <button class="ubtn" id="undoB" onclick="doUndo()" title="Undo - anuleaza ultima modificare">&#8630;</button>
     <button class="ubtn" id="redoB" onclick="doRedo()" title="Redo - refa modificarea anulata">&#8631;</button>
     <button class="rbtn" onclick="resetAll()" title="Sterge toate scorurile">&#8635; Reset</button>
@@ -659,6 +670,9 @@ const ELO={
  FRA:2063,SEN:1860,IRQ:1607,NOR:1914,ARG:2115,ALG:1772,AUT:1830,JOR:1680,
  POR:1989,COD:1652,UZB:1714,COL:1982,ENG:2024,CRO:1912,GHA:1510,PAN:1730
 };
+/* Data Elo-ului de mai sus. elo.json (auto-refresh) se aplica DOAR daca are o data MAI NOUA
+   decat asta. La un update Elo manual viitor, bumpeaza si valoarea asta. */
+const ELO_DATE='2026-06-17';
 const HOSTS=new Set(['USA','MEX','CAN']);
 /* [id, grupa, gazda, oaspete, data, ora locala, stadion] */
 const GM=[
@@ -1116,6 +1130,136 @@ function koResult(id){
   if(p==='h')return{winner:ta,loser:tb,pens:true};
   if(p==='a')return{winner:tb,loser:ta,pens:true};
   return null;
+}
+
+/* ================= AUTO-SYNC SCORURI (football-data.org via proxy Cloudflare) =================
+   Trage automat scorurile. Meciurile TERMINATE se scriu in state.scores (intra in clasament +
+   ingheata cota). Meciurile LIVE se tin in liveData (NU persistat, NU afecteaza clasamentul) si
+   se arata cu un badge "LIVE". Cheia API sta in Worker, nu aici. Vezi SETUP-AUTO.md. */
+const SYNC={
+  proxy:'https://cm2026-proxy.al3ckss.workers.dev',  /* Worker Cloudflare (ascunde cheia football-data.org) */
+  pollMs:60000,         /* reimprospatare la 60s cat timp pagina e vizibila */
+  overwriteManual:false /* daca true, scorul de pe net suprascrie un scor introdus manual */
+};
+let liveData={};                  /* {matchId:{h,a,status}} - transient, nu se salveaza */
+let syncMeta={last:0,busy:false,err:null};
+if(!state.auto)state.auto={};     /* {matchId:1} - scoruri puse de sync (sa nu stricam ce ai pus manual) */
+
+/* mapare cod football-data -> cod intern, doar pt cele care DIFERA (restul se potrivesc pe tla) */
+const FD2OURS={};
+function fdCode(t){
+  if(!t)return null;
+  const tla=(t.tla||'').toUpperCase();
+  if(FD2OURS[tla])return FD2OURS[tla];
+  if(T[tla])return tla;
+  const nm=(t.name||t.shortName||'').toLowerCase().trim();
+  for(const c in T){ if(T[c][0].toLowerCase()===nm)return c; }
+  return null;
+}
+/* gaseste meciul nostru dupa perechea de echipe + data cea mai apropiata (±2 zile) */
+function findOurMatch(c1,c2,utcMs){
+  let best=null,bd=Infinity;
+  const consider=(id,h,a,ts)=>{
+    if(!((h===c1&&a===c2)||(h===c2&&a===c1)))return;
+    const d=Math.abs(ts-utcMs);
+    if(d<bd){bd=d;best={id:id,home:h,away:a};}
+  };
+  GM.forEach(m=>consider(m[0],m[2],m[3],matchTs(m)));
+  KO.forEach(k=>{const r=koTeams(k[0]); if(r.ta&&r.tb)consider(k[0],r.ta,r.tb,matchTs(k));});
+  return (best&&bd<=2*864e5)?best:null;
+}
+async function syncScores(manual){
+  if(!SYNC.proxy){ if(manual)alert('Lipseste SYNC.proxy. Pune URL-ul Worker-ului Cloudflare in cod (vezi SETUP-AUTO.md).'); return; }
+  if(syncMeta.busy)return;
+  if(!state.auto)state.auto={};
+  syncMeta.busy=true; syncMeta.err=null; updateSyncUI();
+  try{
+    const u=SYNC.proxy.replace(/\/+$/,'')+'/v4/competitions/WC/matches';
+    const r=await fetch(u,{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const list=data.matches||[];
+    const newLive={};
+    let changed=false, pushed=false;
+    list.forEach(fm=>{
+      const c1=fdCode(fm.homeTeam), c2=fdCode(fm.awayTeam);
+      if(!c1||!c2)return;
+      const mm=findOurMatch(c1,c2,Date.parse(fm.utcDate)); if(!mm)return;
+      const ft=(fm.score&&fm.score.fullTime)||{};
+      const g={}; g[c1]=ft.home; g[c2]=ft.away;
+      const H=g[mm.home], A=g[mm.away], st=fm.status;
+      if(st==='FINISHED'||st==='AWARDED'){
+        if(!Number.isInteger(H)||!Number.isInteger(A))return;
+        const cur=state.scores[mm.id];
+        const manualSet=cur&&Number.isInteger(cur[0])&&Number.isInteger(cur[1])&&!state.auto[mm.id];
+        if(manualSet&&!SYNC.overwriteManual)return;
+        if(cur&&cur[0]===H&&cur[1]===A){state.auto[mm.id]=1;return;}
+        if(!pushed){pushHistory();pushed=true;}
+        state.scores[mm.id]=[H,A]; state.auto[mm.id]=1;
+        if(H===A && fm.score && fm.score.winner){
+          const w=fm.score.winner, wc=w==='HOME_TEAM'?c1:(w==='AWAY_TEAM'?c2:null);
+          if(wc)state.pens[mm.id]=(wc===mm.home?'h':'a');
+        }
+        changed=true;
+      }else if(st==='IN_PLAY'||st==='PAUSED'||st==='SUSPENDED'){
+        if(Number.isInteger(H)&&Number.isInteger(A))newLive[mm.id]={h:H,a:A,status:st};
+      }
+    });
+    liveData=newLive;
+    if(changed){justChanged=null;save();}
+    syncMeta.last=Date.now();
+    render();
+  }catch(e){ syncMeta.err=e.message||String(e); }
+  finally{ syncMeta.busy=false; updateSyncUI(); }
+}
+function updateSyncUI(){
+  const b=document.getElementById('syncB'), i=document.getElementById('syncInfo');
+  if(b)b.classList.toggle('spin',syncMeta.busy);
+  if(!i)return;
+  if(syncMeta.busy){i.textContent='se sincronizeaza...';i.className='syncinfo';}
+  else if(syncMeta.err){i.textContent='eroare sync: '+syncMeta.err;i.className='syncinfo err';}
+  else if(syncMeta.last){const d=new Date(syncMeta.last),p=n=>String(n).padStart(2,'0');i.textContent='actualizat '+p(d.getHours())+':'+p(d.getMinutes());i.className='syncinfo ok';}
+  else{i.textContent='';i.className='syncinfo';}
+}
+function liveBadge(id){
+  const l=liveData[id]; if(!l)return '';
+  const lbl=l.status==='PAUSED'?'PAUZA':(l.status==='SUSPENDED'?'INTRERUPT':'LIVE');
+  return ` &middot; <span class="liveb">&#9679; ${lbl} ${l.h}-${l.a}</span>`;
+}
+function initSync(){
+  if(!SYNC.proxy)return;
+  syncScores(false);
+  setInterval(()=>{ if(!document.hidden)syncScores(false); }, SYNC.pollMs);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden)syncScores(false); });
+}
+
+/* ================= AUTO-REFRESH ELO (elo.json, generat de GitHub Action din eloratings.net) =======
+   Dashboardul incarca elo.json la pornire. Daca are o data mai noua decat ELO_DATE, suprascrie
+   valorile din ELO (doar continutul, ELO ramane const). Meciurile JUCATE sunt protejate de frozen,
+   deci se schimba doar probabilitatile meciurilor NEjucate - exact ca un update Elo manual. */
+let eloMeta={updated:null,applied:false};
+async function loadElo(){
+  try{
+    const r=await fetch('./elo.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const d=await r.json();
+    if(!d||!d.elo||!d.updated)return;
+    eloMeta.updated=d.updated;
+    if(d.updated<=ELO_DATE){updateEloUI();return;}   /* nu suprascrie un Elo manual mai nou */
+    let ch=false;
+    for(const c in d.elo){
+      const v=d.elo[c];
+      if(ELO[c]!=null && Number.isFinite(v) && v>=1200 && v<=2400 && ELO[c]!==v){ELO[c]=v;ch=true;}
+    }
+    eloMeta.applied=ch;
+    updateEloUI();
+    if(ch)render();
+  }catch(e){}
+}
+function updateEloUI(){
+  const i=document.getElementById('eloInfo'); if(!i)return;
+  i.textContent=eloMeta.updated?('Elo '+eloMeta.updated):'';
+  i.title=eloMeta.applied?'Elo actualizat automat din eloratings.net':'';
 }
 
 /* ================= EVENTS ================= */
@@ -2657,7 +2801,7 @@ function groupCard(g,idx){
     if(winner&&justChanged===m[0])pendingFx={mid:m[0],colors:FLAGC[winner],emoji:EMOJI[winner]};
     const hs=(draw&&justChanged===m[0])?'<span class="hs">\u{1F91D}</span>':'';
     return `
-    <div class="minfo">M${m[0]} &middot; <b>${ti.day} ${ti.dstr}</b> &middot; local ${ti.local} &middot; <span class="ro">RO ${ti.ro}</span> &middot; ${ti.vf}${ti.stadium}, ${ti.city} &middot; <span class="cap">&#128101; ${ti.cap}</span></div>
+    <div class="minfo">M${m[0]} &middot; <b>${ti.day} ${ti.dstr}</b> &middot; local ${ti.local} &middot; <span class="ro">RO ${ti.ro}</span> &middot; ${ti.vf}${ti.stadium}, ${ti.city} &middot; <span class="cap">&#128101; ${ti.cap}</span>${liveBadge(m[0])}</div>
     <div class="mrow" data-mid="${m[0]}">
       ${sideHtml(m[2],true,winner,m[0])}
       ${scoreInputs(m[0],hs)}
@@ -2742,7 +2886,7 @@ function koCard(k){
   }
   return `<div class="kcard">
     <div class="khead"><span>${STAGE_NAME[stage]}</span><span class="mn">M${id}</span></div>
-    <div class="kinfo"><b>${ti.day} ${ti.dstr}</b> &middot; local ${ti.local} &middot; <span class="ro">RO ${ti.ro}</span> &middot; ${ti.vf}${ti.stadium}, ${ti.city} &middot; <span class="cap">&#128101; ${ti.cap}</span></div>
+    <div class="kinfo"><b>${ti.day} ${ti.dstr}</b> &middot; local ${ti.local} &middot; <span class="ro">RO ${ti.ro}</span> &middot; ${ti.vf}${ti.stadium}, ${ti.city} &middot; <span class="cap">&#128101; ${ti.cap}</span>${liveBadge(id)}</div>
     <div class="kteams" data-mid="${id}">
       ${koSide(a,ta,true,winner,id)}
       ${scoreInputs(id)}
@@ -2824,6 +2968,8 @@ function render(){
   justChanged=null;
 }
 render();
+initSync();
+loadElo();
 </script>
 <script>
 // Inregistrare service worker (PWA / offline). Esueaza silentios cand e deschis de pe file://.
