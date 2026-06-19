@@ -152,7 +152,9 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .syncinfo.err{color:#e61d25;opacity:1}
 .liveb{display:inline-block;color:#fff;background:#e61d25;padding:1px 8px;border-radius:7px;font-weight:800;font-size:11px;letter-spacing:.4px;vertical-align:middle;animation:livep 1.2s ease-in-out infinite}
 @keyframes livep{0%,100%{opacity:1}50%{opacity:.5}}
-.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tabs{display:flex;flex-direction:column;gap:9px}
+.tabrow{display:flex;flex-wrap:wrap;gap:8px}
+.tabrow.info{padding-top:9px;border-top:1px dashed var(--line)}
 .tab{
   font-weight:900;font-size:15px;letter-spacing:1px;text-transform:uppercase;
   padding:10px 20px;cursor:pointer;border:2px solid;
@@ -160,6 +162,11 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 }
 .tab:hover{transform:translateY(-2px)}
 .tab.active{color:#0b0b10 !important}
+/* sub-navigatie in Statistici */
+.substack{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.subtab{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:800;font-size:13px;letter-spacing:.4px;padding:7px 16px;border-radius:0 12px 0 12px;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s}
+.subtab:hover:not(.active){border-color:var(--teal);color:var(--teal)}
+.subtab.active{background:var(--teal);border-color:var(--teal);color:#04222a}
 .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
 .ubtn{
   width:36px;height:36px;border-radius:50%;border:1px solid #3a3a48;background:var(--panel);
@@ -503,7 +510,7 @@ select.thirdsel:focus{outline:none;border-color:var(--gold)}
 .stcard .v{font-size:30px;font-weight:900;line-height:1.1}
 .stcard .l{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:5px}
 .stcard .s{font-size:11px;font-weight:800;margin-top:2px}
-.statswrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px;align-items:start}
+.statswrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(430px,100%),1fr));gap:16px;align-items:start}
 .favcard .ghead{background:linear-gradient(100deg,#7b2d8e,#4a1a58);color:#fff}
 
 /* steag tara gazda la stadion */
@@ -639,6 +646,11 @@ tr.q3in td:first-of-type{box-shadow:inset 4px 0 0 #8fd14f}
   .t3st.in::after{content:"\2713";color:#8fd14f}
   .t3st.out::after{content:"\2717";color:#888}
   .q3badge{display:block;margin:2px 0 0;font-size:9px}
+  /* bara de progres: pe mobil etichetele KO se ingramadeau si se suprapuneau pe dreapta.
+     Pastram doar "Grupe" (stanga); fazele finale raman marcate de tick-uri + minge + trofeu. */
+  .plabels{font-size:10px}
+  .plabels span:not(:first-child){display:none}
+  .pstatus{font-size:12px}
 }
 </style>
 </head>
@@ -868,16 +880,17 @@ const KO=[
 [104,'final','W101','W102','2026-07-19','15:00','MET']
 ];
 const STAGES=[
- {key:'today',label:'Azi',color:'#ff6b35'},
- {key:'groups',label:'Grupe',color:'#c8a24b'},
- {key:'r32',label:'Saisprezecimi',color:'#e61d25'},
- {key:'r16',label:'Optimi',color:'#3cac3b'},
- {key:'qf',label:'Sferturi',color:'#4a5fd0'},
- {key:'sf',label:'Semifinale',color:'#ff3eb5'},
- {key:'final',label:'Finala',color:'#ff6b35'},
- {key:'scorers',label:'Marcatori',color:'#f6b40e'},
- {key:'venues',label:'Stadioane',color:'#3cac3b'},
- {key:'stats',label:'Statistici',color:'#00c2de'}
+ /* grp 'phase' = fazele turneului; grp 'info' = utilitare/statistici (rand separat) */
+ {key:'groups',label:'Grupe',color:'#c8a24b',grp:'phase'},
+ {key:'r32',label:'Saisprezecimi',color:'#e61d25',grp:'phase'},
+ {key:'r16',label:'Optimi',color:'#3cac3b',grp:'phase'},
+ {key:'qf',label:'Sferturi',color:'#4a5fd0',grp:'phase'},
+ {key:'sf',label:'Semifinale',color:'#ff3eb5',grp:'phase'},
+ {key:'final',label:'Finala',color:'#ff6b35',grp:'phase'},
+ {key:'today',label:'Azi',color:'#ff6b35',grp:'info'},
+ {key:'scorers',label:'Marcatori',color:'#f6b40e',grp:'info'},
+ {key:'venues',label:'Stadioane',color:'#3cac3b',grp:'info'},
+ {key:'stats',label:'Statistici',color:'#00c2de',grp:'info'}
 ];
 const STAGE_NAME={r32:'Saisprezecimi',r16:'Optimi',qf:'Sfert de finala',sf:'Semifinala',third:'Finala mica',final:'FINALA'};
 const MONTHS=['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','nov','dec'];
@@ -1120,7 +1133,7 @@ function statsData(){
   });
   return {played,fav,out,sur,soc,draws,biggest};
 }
-function statsView(){
+function statSummary(){
   const d=statsData();
   const pct=d.played?Math.round(d.fav/d.played*100):0;
   const cards=`<div class="stgrid">
@@ -1129,18 +1142,21 @@ function statsView(){
     <div class="stcard"><div class="v" style="color:#9badff">${d.out}</div><div class="l">&#8599; Contra cotelor</div><div class="s" style="color:var(--muted)">25-49%</div></div>
     <div class="stcard"><div class="v" style="color:#ff9b6b">${d.sur}</div><div class="l">&#9889; Surprize</div><div class="s" style="color:var(--muted)">15-24%</div></div>
     <div class="stcard"><div class="v" style="color:#ff7b81">${d.soc}</div><div class="l">&#128165; Socuri</div><div class="s" style="color:var(--muted)">sub 15%</div></div>
-    <div class="stcard"><div class="v" style="color:#4a4a58;color:#b8b8c4">${d.draws}</div><div class="l">Egaluri</div><div class="s" style="color:var(--muted)">in grupe</div></div>
+    <div class="stcard"><div class="v" style="color:#b8b8c4">${d.draws}</div><div class="l">Egaluri</div><div class="s" style="color:var(--muted)">in grupe</div></div>
   </div>`;
   const big=d.biggest?`<div class="gcard surcard" style="margin-bottom:16px">
     <div class="ghead" style="background:linear-gradient(100deg,#e61d25,#7a0e13);color:#fff"><span>Cel mai mare soc</span><small>${d.biggest.p}% SANSE</small></div>
     <div class="surrow"><span class="si">\u{1F4A5}</span><span>${d.biggest.desc}</span><span class="sp">${d.biggest.p}%</span></div>
   </div>`:'';
+  return cards+big;
+}
+function favCardHtml(){
   const favs=Object.keys(T).sort((a,b)=>ELO[b]-ELO[a]).slice(0,10).map((t,i)=>`
     <tr><td>${i+1}</td>
     <td class="tm" onclick="openSquad('${t}')" title="Vezi lotul">${flag(t)}${tname(t)}</td>
     <td>${ELO[t]}</td>
     <td>${GROUP_SEED[t].g} <span style="color:var(--muted)">(#${GROUP_SEED[t].seed})</span></td></tr>`).join('');
-  const favCard=`<div class="gcard favcard">
+  return `<div class="gcard favcard">
     <div class="ghead"><span>Top 10 favorite</span><small>RATING ELO</small></div>
     <table class="stand">
       <tr><th>#</th><th style="text-align:left">Echipa</th><th>Elo</th><th>Grupa</th></tr>
@@ -1148,7 +1164,18 @@ function statsView(){
     </table>
     <div class="minfo" style="padding:10px 14px">Pozitia fiecarei echipe in topul tuturor celor 48 apare in fisa echipei (click pe nume).</div>
   </div>`;
-  return cards+big+goalStatsSection()+`<div class="statswrap">${favCard}${surpriseView()}</div>`;
+}
+function statsView(){
+  const sub=window.__statsTab||'rezumat';
+  const items=[['rezumat','Rezumat'],['goluri','Goluri'],['scenarii','Scenarii'],['clasamente','Clasamente']];
+  const nav=`<div class="substack">`+items.map(([k,l])=>`<button class="subtab ${k===sub?'active':''}" onclick="window.__statsTab='${k}';render()">${l}</button>`).join('')+`</div>`;
+  const empty=t=>`<div class="gcard"><div class="minfo" style="padding:18px 16px">${t}</div></div>`;
+  let body;
+  if(sub==='goluri') body=goalStatsSection()||empty('Inca nu sunt date despre goluri (se incarca din openfootball, care e actualizat ~o data/zi).');
+  else if(sub==='scenarii') body=scenariosCard()||empty('Scenariile apar cand exista grupe in desfasurare (cu meciuri jucate, dar neincheiate). Acum nu e cazul.');
+  else if(sub==='clasamente') body=`<div class="statswrap">${favCardHtml()}${surpriseView()}</div>`;
+  else body=statSummary();
+  return nav+body;
 }
 
 /* ================= STATISTICI GOLURI (din openfootball, goalsMap) ================= */
@@ -3407,17 +3434,17 @@ function render(){
   _t8cache=null;
   ensureFrozen();
   const active=window.__activeTab||'groups';
-  document.getElementById('tabs').innerHTML=STAGES.map(s=>{
+  const tabRow=grp=>STAGES.filter(s=>s.grp===grp).map(s=>{
     const a=s.key===active;
     return `<div class="tab ${a?'active':''} ${s.key==='stats'?'tabstats':''}" style="border-color:${s.color};color:${a?'':s.color};background:${a?s.color:'transparent'}"
       onclick="window.__activeTab='${s.key}';render()">${s.label}</div>`;
   }).join('');
+  document.getElementById('tabs').innerHTML=`<div class="tabrow">${tabRow('phase')}</div><div class="tabrow info">${tabRow('info')}</div>`;
   let html='';
   html+=`<div class="view ${active==='today'?'active':''}">${todayView()}</div>`;
   html+=`<div class="view ${active==='groups'?'active':''}">
     <div class="legend">Calificare: <i style="background:var(--mex)"></i>Locurile 1-2 direct <i style="background:#f6b40e"></i>Locul 3 - intra in clasamentul locurilor 3 (primele 8 din 12 se califica)</div>
     <div class="groups">${Object.keys(GROUPS).map((g,i)=>groupCard(g,i)).join('')}</div>
-    ${scenariosCard()}
     <div class="botrow">${thirdTable()}${upcomingCard()}</div>
   </div>`;
   ['r32','r16','qf','sf'].forEach(st=>{
