@@ -205,6 +205,13 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .motd .dot{width:11px;height:11px;border-radius:50%;background:var(--can);flex:0 0 auto;animation:mpulse 1.3s infinite}
 @keyframes mpulse{0%{box-shadow:0 0 0 0 rgba(230,29,37,.6)}70%{box-shadow:0 0 0 11px rgba(230,29,37,0)}100%{box-shadow:0 0 0 0 rgba(230,29,37,0)}}
 
+/* ---------- Top marcatori ---------- */
+.scard{max-width:780px;margin:0 auto}
+.scard .pts{font-size:18px}
+.scard .screst{object-fit:contain;background:#fff;padding:1px}
+.slnk{color:var(--gold2);cursor:pointer;font-weight:800;text-decoration:underline}
+.srefresh{padding:2px 9px;font-size:14px;line-height:1;margin-left:8px;vertical-align:middle}
+
 /* ---------- Group cards ---------- */
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
 .gcard{background:rgba(21,21,28,.92);border:1px solid var(--line);border-radius:0 22px 0 22px;overflow:hidden;backdrop-filter:blur(2px)}
@@ -785,6 +792,7 @@ const STAGES=[
  {key:'qf',label:'Sferturi',color:'#4a5fd0'},
  {key:'sf',label:'Semifinale',color:'#ff3eb5'},
  {key:'final',label:'Finala',color:'#ff6b35'},
+ {key:'scorers',label:'Marcatori',color:'#f6b40e'},
  {key:'stats',label:'Statistici',color:'#00c2de'}
 ];
 const STAGE_NAME={r32:'Saisprezecimi',r16:'Optimi',qf:'Sfert de finala',sf:'Semifinala',third:'Finala mica',final:'FINALA'};
@@ -1136,6 +1144,66 @@ function tickMOTD(){
   if(rem>0){ cd.innerHTML=fmtCd(rem); return; }
   const l=liveData[MOTD.id];
   cd.innerHTML=`<div class="livenow"><span class="dot"></span>${l?('LIVE '+l.h+'–'+l.a):'In desfasurare'}</div>`;
+}
+
+/* ================= TOP MARCATORI (Gheata de Aur) ================= */
+/* Trage clasamentul golgheterilor de pe football-data.org prin acelasi Worker.
+   Incarcare lazy: doar cand deschizi tab-ul Marcatori; cache 5 min in memorie. */
+let scorersData=null;
+let scorersMeta={loaded:false,busy:false,err:null,ts:0};
+async function loadScorers(force){
+  if(!SYNC.proxy)return;
+  if(scorersMeta.busy)return;
+  if(scorersMeta.loaded && !force && Date.now()-scorersMeta.ts < 5*60000)return;
+  scorersMeta.busy=true; if(force)render();
+  try{
+    const u=SYNC.proxy.replace(/\/+$/,'')+'/v4/competitions/WC/scorers?limit=20';
+    const r=await fetch(u,{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    scorersData=d.scorers||[];
+    scorersMeta={loaded:true,busy:false,err:null,ts:Date.now()};
+  }catch(e){ scorersMeta={loaded:scorersMeta.loaded,busy:false,err:e.message||String(e),ts:scorersMeta.ts}; }
+  render();
+}
+/* steagul/numele echipei marcatorului: folosim codul nostru intern dupa tla, cu fallback pe sigla football-data */
+function scorerFlag(t){
+  const tla=(t&&t.tla||'').toUpperCase();
+  if(T[tla])return `<img class="flag" src="https://flagcdn.com/w40/${T[tla][1]}.png" alt="">`;
+  return `<img class="flag screst" src="${t&&t.crest||''}" alt="">`;
+}
+function scorerTeam(t){ const tla=(t&&t.tla||'').toUpperCase(); return T[tla]?tname(tla):(t&&t.name||'-'); }
+function scorersView(){
+  const upd=scorersMeta.ts?(()=>{const d=new Date(scorersMeta.ts),p=n=>String(n).padStart(2,'0');return ' &middot; actualizat '+p(d.getHours())+':'+p(d.getMinutes());})():'';
+  const head=`<div class="ghead acc3"><span>&#9917; Top marcatori</span>
+    <small>GHEATA DE AUR <button class="ubtn srefresh ${scorersMeta.busy?'spin':''}" onclick="loadScorers(true)" title="Reincarca marcatorii">&#10227;</button></small></div>`;
+  let inner;
+  if(scorersMeta.err && !scorersData){
+    inner=`<div class="minfo" style="padding:16px">Nu am putut incarca marcatorii (${scorersMeta.err}). <span class="slnk" onclick="loadScorers(true)">Reincearca</span></div>`;
+  }else if(!scorersData){
+    inner=`<div class="minfo" style="padding:16px">Se incarca marcatorii...</div>`;
+  }else if(!scorersData.length){
+    inner=`<div class="minfo" style="padding:16px">Inca nu s-a marcat niciun gol la turneu.</div>`;
+  }else{
+    const rows=scorersData.map((x,i)=>{
+      const g=x.goals||0, pen=x.penalties||0, m=x.playedMatches||0;
+      return `<tr class="${i===0?'q1':''}">
+        <td>${i+1}</td>
+        <td class="tm">${scorerFlag(x.team)}<b>${x.player.name}</b></td>
+        <td style="text-align:left;color:var(--muted)">${scorerTeam(x.team)}</td>
+        <td>${m}</td>
+        <td class="pts">${g}</td>
+        <td style="color:var(--muted)">${pen?pen:'&ndash;'}</td>
+      </tr>`;
+    }).join('');
+    inner=`<table class="stand">
+      <tr><th>#</th><th style="text-align:left">Jucator</th><th style="text-align:left">Echipa</th>
+        <th title="Meciuri jucate">M</th><th>Goluri</th><th title="Din care din penalty">Pen.</th></tr>
+      ${rows}
+    </table>
+    <div class="minfo" style="padding:10px 14px 14px">Sursa: football-data.org &middot; primii 20 &middot; assist-urile nu sunt disponibile pe planul gratuit${upd}</div>`;
+  }
+  return `<div class="gcard scard">${head}${inner}</div>`;
 }
 
 /* ================= GROUPS LOGIC ================= */
@@ -3020,8 +3088,10 @@ function render(){
     <div class="kogrid">${KO.filter(k=>k[1]==='third'||k[1]==='final').map(koCard).join('')}</div>
     ${champ}
   </div>`;
+  html+=`<div class="view ${active==='scorers'?'active':''}">${scorersView()}</div>`;
   html+=`<div class="view ${active==='stats'?'active':''}">${statsView()}</div>`;
   document.getElementById('views').innerHTML=html;
+  if(active==='scorers')loadScorers(false);   /* incarca lazy la deschiderea tab-ului */
 
   /* meciul zilei + countdown (sus, mereu vizibil) */
   motdCard();
