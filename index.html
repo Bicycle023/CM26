@@ -278,6 +278,21 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .gsrow .gsn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;background:var(--gold);color:#0b0b10;border-radius:7px;font-weight:900;font-size:13px}
 @media(max-width:560px){.gssplit{grid-template-columns:1fr}}
 
+/* ---------- Parcurs echipa (in fisa/drawer) ---------- */
+.trow{display:flex;align-items:center;gap:7px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.trow .flag{width:22px;height:auto;flex:0 0 auto}
+.trr{width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;color:#fff;flex:0 0 auto}
+.trr.w{background:var(--mex)}.trr.l{background:#c0392b}.trr.d{background:#7a7a86}.trr.lv{background:var(--can);font-size:9px}.trr.s{background:#23232e;color:var(--muted)}
+.trhd{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:800;flex:0 0 auto;width:56px}
+.tropp{font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trsc{font-weight:800;white-space:nowrap;flex:0 0 auto}
+.trsc b{font-size:14px}
+.trm{color:var(--can);font-weight:900;font-size:10px}
+.trsoon{color:var(--muted);font-weight:700;font-size:11px}
+.trlab{font-size:10px;color:var(--muted);font-weight:700;flex:0 0 auto;width:62px;text-align:right}
+.tgrwrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 6px}
+.tgr{background:rgba(200,162,75,.12);border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12.5px;font-weight:700}
+
 /* ---------- Group cards ---------- */
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
 .gcard{background:rgba(21,21,28,.92);border:1px solid var(--line);border-radius:0 22px 0 22px;overflow:hidden;backdrop-filter:blur(2px)}
@@ -1251,7 +1266,7 @@ function todayView(){
     const ti=timeInfo(x.date,x.time,x.v), s=getScore(x.id), live=liveData[x.id];
     let mid;
     if(s)mid=`<span class="tdsc">${s[0]} – ${s[1]}</span><span class="tdst done">terminat</span>`;
-    else if(live)mid=`<span class="tdsc">${live.h} – ${live.a}</span><span class="tdst live">&#9679; LIVE</span>`;
+    else if(live)mid=`<span class="tdsc">${live.h} – ${live.a}</span><span class="tdst live">&#9679; LIVE${liveMinute(live)?' '+liveMinute(live)+"'":''}</span>`;
     else mid=`<span class="tdst soon">RO ${ti.ro}</span>`;
     return `<div class="tdrow"><div class="tdlab">${x.lab} &middot; ${ti.vf}${ti.city}</div>
       <div class="tdmatch"><div class="tdside h">${side(x.hc)}</div><div class="tdmid">${mid}</div><div class="tdside a">${side(x.ac)}</div></div></div>`;
@@ -1349,7 +1364,8 @@ function tickMOTD(){
   const rem=MOTD.ts-Date.now();
   if(rem>0){ cd.innerHTML=fmtCd(rem); return; }
   const l=liveData[MOTD.id];
-  cd.innerHTML=`<div class="livenow"><span class="dot"></span>${l?('LIVE '+l.h+'–'+l.a):'In desfasurare'}</div>`;
+  const mn=l?liveMinute(l):'';
+  cd.innerHTML=`<div class="livenow"><span class="dot"></span>${l?('LIVE '+(mn?mn+"' ":'')+l.h+'–'+l.a):'In desfasurare'}</div>`;
 }
 
 /* ================= TOP MARCATORI (Gheata de Aur) ================= */
@@ -1619,7 +1635,8 @@ async function syncScores(manual){
         changed=true;
         finals.push({th:mm.home,ta:mm.away,H,A});
       }else if(st==='IN_PLAY'||st==='PAUSED'||st==='SUSPENDED'){
-        if(Number.isInteger(H)&&Number.isInteger(A))newLive[mm.id]={h:H,a:A,status:st,th:mm.home,ta:mm.away};
+        if(Number.isInteger(H)&&Number.isInteger(A))newLive[mm.id]={h:H,a:A,status:st,th:mm.home,ta:mm.away,
+          ko:Date.parse(fm.utcDate),min:(typeof fm.minute==='number'?fm.minute:null)};
       }
     });
     /* notificari locale: final / start meci / gol (prima sincronizare = baseline, fara notificari) */
@@ -1648,10 +1665,23 @@ function updateSyncUI(){
   else if(syncMeta.last){const d=new Date(syncMeta.last),p=n=>String(n).padStart(2,'0');i.textContent='actualizat '+p(d.getHours())+':'+p(d.getMinutes());i.className='syncinfo ok';}
   else{i.textContent='';i.className='syncinfo';}
 }
+/* minutul aproximativ al unui meci live: foloseste valoarea de la API daca exista (l.min),
+   altfel estimeaza din ora de start cu o pauza ~15 min intre min. 45 si 60 de joc. */
+function liveMinute(l){
+  if(!l)return '';
+  if(l.min!=null)return l.min;
+  if(!l.ko)return '';
+  const e=Math.floor((Date.now()-l.ko)/60000);
+  let mn = e<=45 ? e : (e<60 ? 45 : e-15);
+  if(mn<1)mn=1; if(mn>90)return '90+';
+  return mn;
+}
 function liveBadge(id){
   const l=liveData[id]; if(!l)return '';
-  const lbl=l.status==='PAUSED'?'PAUZA':(l.status==='SUSPENDED'?'INTRERUPT':'LIVE');
-  return ` &middot; <span class="liveb">&#9679; ${lbl} ${l.h}-${l.a}</span>`;
+  if(l.status==='PAUSED')return ` &middot; <span class="liveb">&#9679; PAUZA ${l.h}-${l.a}</span>`;
+  if(l.status==='SUSPENDED')return ` &middot; <span class="liveb">&#9679; INTRERUPT ${l.h}-${l.a}</span>`;
+  const mn=liveMinute(l);
+  return ` &middot; <span class="liveb">&#9679; LIVE ${mn?mn+"' ":''}${l.h}-${l.a}</span>`;
 }
 function initSync(){
   if(!SYNC.proxy)return;
@@ -3132,6 +3162,35 @@ function teamOverall(sq){
   const o=sq.players.map(p=>p[5]).sort((a,b)=>b-a).slice(0,11);
   return Math.round(o.reduce((a,b)=>a+b,0)/o.length);
 }
+/* parcursul echipei in fisa: toate meciurile (grupa + KO daca e implicata) cu rezultat/status,
+   plus marcatorii echipei din goalsMap (openfootball). */
+function teamSection(code){
+  const items=[];
+  GM.forEach(m=>{ if(m[2]!==code&&m[3]!==code)return; items.push({id:m[0],home:m[2],away:m[3],date:m[4],time:m[5],v:m[6],ts:matchTs(m),lab:'Grupa '+m[1]}); });
+  KO.forEach(k=>{ const r=koTeams(k[0]); if(r.ta!==code&&r.tb!==code)return; items.push({id:k[0],home:r.ta,away:r.tb,date:k[4],time:k[5],v:k[6],ts:matchTs(k),lab:STAGE_NAME[k[1]]}); });
+  items.sort((a,b)=>a.ts-b.ts);
+  const rows=items.map(x=>{
+    const isHome=x.home===code, opp=isHome?x.away:x.home;
+    const ti=timeInfo(x.date,x.time,x.v), s=getScore(x.id), live=liveData[x.id];
+    let badge,mid;
+    if(s){ const my=isHome?s[0]:s[1], ot=isHome?s[1]:s[0];
+      badge=my>ot?'<span class="trr w">V</span>':(my<ot?'<span class="trr l">Î</span>':'<span class="trr d">E</span>');
+      mid=`<b>${my}–${ot}</b>`;
+    } else if(live){ const my=isHome?live.h:live.a, ot=isHome?live.a:live.h;
+      badge='<span class="trr lv">●</span>'; mid=`<b>${my}–${ot}</b> <span class="trm">LIVE${liveMinute(live)?' '+liveMinute(live)+"'":''}</span>`;
+    } else { badge='<span class="trr s">·</span>'; mid=`<span class="trsoon">${ti.day} ${ti.dstr} &middot; RO ${ti.ro}</span>`; }
+    const oppHtml=opp?`${flag(opp)}<span class="tropp">${tname(opp)}</span>`:`<span class="tropp" style="color:var(--muted)">de stabilit</span>`;
+    return `<div class="trow">${badge}<span class="trhd">${isHome?'acasa':'deplasare'}</span>${oppHtml}<span class="trsc">${mid}</span><span class="trlab">${x.lab}</span></div>`;
+  }).join('');
+  let scor='';
+  if(goalsMap){
+    const cnt={};
+    items.forEach(x=>{const g=goalsMap[x.id]; if(!g)return; const arr=g.home===code?g.h:(g.away===code?g.a:[]); arr.forEach(y=>{if(!y.og)cnt[y.name]=(cnt[y.name]||0)+1;});});
+    const list=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+    if(list.length)scor=`<div class="dsec">Marcatori</div><div class="tgrwrap">`+list.map(nm=>`<span class="tgr">&#9917; ${nm}${cnt[nm]>1?` <b>×${cnt[nm]}</b>`:''}</span>`).join('')+`</div>`;
+  }
+  return `<div class="dsec">Parcurs in turneu</div>${rows||'<div class="trow" style="color:var(--muted)">Inca nu are meciuri stabilite.</div>'}${scor}`;
+}
 function openSquad(code){
   const d=document.getElementById('drawer');
   const cols=FLAGC[code];
@@ -3177,6 +3236,7 @@ function openSquad(code){
       <button class="dclose" onclick="closeSquad()" title="Inchide">&#10005;</button>
     </div>
     ${stripe}
+    ${teamSection(code)}
     ${body}`;
   d.classList.add('open');
   document.getElementById('ovl').classList.add('open');
