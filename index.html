@@ -213,6 +213,17 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .srefresh{padding:2px 9px;font-size:14px;line-height:1;margin-left:8px;vertical-align:middle}
 .ubtn.on{border-color:var(--gold);color:var(--gold2);background:rgba(200,162,75,.12)}
 
+/* ---------- Marcatori per meci (expandabil sub scor) ---------- */
+.mgoals{margin:-2px 0 12px;padding:0 6px}
+.mgoals summary{cursor:pointer;color:var(--gold2);font-weight:800;font-size:12px;letter-spacing:.3px;
+  list-style:none;display:inline-flex;align-items:center;gap:6px;padding:4px 0;user-select:none}
+.mgoals summary::-webkit-details-marker{display:none}
+.mgoals summary::before{content:"\25B8";font-size:10px;color:var(--muted);transition:transform .15s}
+.mgoals[open] summary::before{transform:rotate(90deg)}
+.gline{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#d8d8e0;font-weight:600;padding:3px 0 3px 4px;line-height:1.5}
+.gline .flag{width:20px;height:auto;flex:0 0 auto;margin-top:1px}
+.gline i{color:var(--muted);font-style:normal;font-size:11px}
+
 /* ---------- Group cards ---------- */
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
 .gcard{background:rgba(21,21,28,.92);border:1px solid var(--line);border-radius:0 22px 0 22px;overflow:hidden;backdrop-filter:blur(2px)}
@@ -1206,6 +1217,48 @@ function scorersView(){
     <div class="minfo" style="padding:10px 14px 14px">Sursa: football-data.org &middot; primii 20 &middot; assist-urile nu sunt disponibile pe planul gratuit${upd}</div>`;
   }
   return `<div class="gcard scard">${head}${inner}</div>`;
+}
+
+/* ================= MARCATORI PER MECI (goluri + minut, din openfootball) =================
+   Sursa: openfootball/worldcup.json (gratuit, fara cheie). Actualizat manual ~o data/zi,
+   deci golurile apar cu pana la o zi intarziere. Mapam dupa perechea de echipe + data la
+   meciul nostru (findOurMatch) si afisam lista expandabila sub fiecare meci terminat. */
+const ENG2CODE={'Algeria':'ALG','Argentina':'ARG','Australia':'AUS','Austria':'AUT','Belgium':'BEL','Bosnia & Herzegovina':'BIH','Brazil':'BRA','Canada':'CAN','Cape Verde':'CPV','Colombia':'COL','Croatia':'CRO','Curaçao':'CUW','Czech Republic':'CZE','DR Congo':'COD','Ecuador':'ECU','Egypt':'EGY','England':'ENG','France':'FRA','Germany':'GER','Ghana':'GHA','Haiti':'HAI','Iran':'IRN','Iraq':'IRQ','Ivory Coast':'CIV','Japan':'JPN','Jordan':'JOR','Mexico':'MEX','Morocco':'MAR','Netherlands':'NED','New Zealand':'NZL','Norway':'NOR','Panama':'PAN','Paraguay':'PAR','Portugal':'POR','Qatar':'QAT','Saudi Arabia':'KSA','Scotland':'SCO','Senegal':'SEN','South Africa':'RSA','South Korea':'KOR','Spain':'ESP','Sweden':'SWE','Switzerland':'SUI','Tunisia':'TUN','Turkey':'TUR','USA':'USA','Uruguay':'URU','Uzbekistan':'UZB'};
+const GOALS_URL='https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json';
+let goalsMap=null;
+let goalsMeta={loaded:false,busy:false,err:null,ts:0};
+async function loadGoals(force){
+  if(goalsMeta.busy)return;
+  if(goalsMeta.loaded && !force && Date.now()-goalsMeta.ts < 30*60000)return;
+  goalsMeta.busy=true;
+  try{
+    const r=await fetch(GOALS_URL+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const map={};
+    (d.matches||[]).forEach(m=>{
+      const c1=ENG2CODE[m.team1], c2=ENG2CODE[m.team2];
+      if(!c1||!c2)return;
+      const g1=m.goals1||[], g2=m.goals2||[];
+      if(!g1.length && !g2.length)return;
+      const p=(m.date||'').split('-').map(Number); if(!p[0])return;
+      const ts=Date.UTC(p[0],p[1]-1,p[2],12,0);
+      const mm=findOurMatch(c1,c2,ts); if(!mm)return;
+      const conv=arr=>arr.map(x=>({name:x.name,minute:x.minute,pen:!!x.penalty,og:!!x.owngoal}));
+      const byCode={}; byCode[c1]=conv(g1); byCode[c2]=conv(g2);
+      map[mm.id]={home:mm.home,away:mm.away,h:byCode[mm.home]||[],a:byCode[mm.away]||[]};
+    });
+    goalsMap=map;
+    goalsMeta={loaded:true,busy:false,err:null,ts:Date.now()};
+  }catch(e){ goalsMeta={loaded:goalsMeta.loaded,busy:false,err:e.message||String(e),ts:goalsMeta.ts}; }
+  render();
+}
+function matchGoals(id){
+  if(!goalsMap)return '';
+  const g=goalsMap[id]; if(!g||(!g.h.length && !g.a.length))return '';
+  const fmt=arr=>arr.map(x=>`${x.minute}' ${x.name}${x.pen?' <i>(pen)</i>':''}${x.og?' <i>(autogol)</i>':''}`).join(' &middot; ');
+  const line=(code,arr)=>arr.length?`<div class="gline">${flag(code)}<span>${fmt(arr)}</span></div>`:'';
+  return `<details class="mgoals"><summary>&#9917; Marcatori</summary>${line(g.home,g.h)}${line(g.away,g.a)}</details>`;
 }
 
 /* ================= GROUPS LOGIC ================= */
@@ -2988,7 +3041,8 @@ function groupCard(g,idx){
       ${scoreInputs(m[0],hs)}
       ${sideHtml(m[3],false,winner,m[0])}
       ${probRow(m[2],m[3],m[0])}
-    </div>`;
+    </div>
+    ${matchGoals(m[0])}`;
   }).join('');
   return `<div class="gcard">
     <div class="ghead acc${idx%4}"><span>GRUPA ${g}</span><small>${groupDone(g)?'INCHEIATA':'IN DESFASURARE'}</small></div>
@@ -3075,6 +3129,7 @@ function koCard(k){
     </div>
     ${ta&&tb?koProbRow(ta,tb,id):''}
     ${pens}
+    ${matchGoals(id)}
   </div>`;
 }
 function progressData(){
@@ -3156,6 +3211,7 @@ function render(){
 render();
 initSync();
 loadElo();
+loadGoals();                  /* marcatori per meci (openfootball) */
 updateNotifUI();              /* starea butonului de notificari */
 setInterval(tickMOTD,1000);   /* numaratoare inversa live pt meciul zilei */
 </script>
