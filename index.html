@@ -224,6 +224,60 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .gline .flag{width:20px;height:auto;flex:0 0 auto;margin-top:1px}
 .gline i{color:var(--muted);font-style:normal;font-size:11px}
 
+/* ---------- Scenarii de calificare ---------- */
+.scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:14px}
+.scgrp{border:1px solid var(--line);border-radius:0 16px 0 16px;overflow:hidden;background:rgba(11,11,16,.4)}
+.scgh{background:#1d1d27;padding:7px 12px;font-weight:900;color:var(--gold2);font-size:13px;letter-spacing:.5px}
+.scrow{display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid var(--line);font-size:13px;font-weight:700}
+.scrow .flag{width:22px;height:auto;flex:0 0 auto}
+.scrow .sct{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scrow .scp{color:var(--muted);font-weight:800;font-size:12px}
+.scrow .scb{font-weight:800;font-size:12px;white-space:nowrap}
+.scrow.qok .scb{color:#8fd14f}.scrow.qout .scb{color:#ff7b81}.scrow.qmid .scb{color:#9badff}
+.scrow.qok{box-shadow:inset 4px 0 0 var(--mex)}
+.scrow.qout{opacity:.6}
+.scrow .sch{flex-basis:100%;font-size:11.5px;color:var(--gold2);font-weight:700;padding-left:30px;margin-top:-2px}
+
+/* ---------- Vedere Azi ---------- */
+.tdrow{padding:11px 16px;border-bottom:1px solid var(--line)}
+.tdrow:last-child{border-bottom:none}
+.tdlab{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.tdlab .vflag{width:15px;vertical-align:-2px;margin-right:3px;border-radius:2px}
+.tdmatch{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.tdside{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800}
+.tdside.h{justify-content:flex-end;text-align:right}
+.tdside.a{justify-content:flex-start}
+.tdside .flag{width:26px;height:auto}
+.tdmid{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:78px}
+.tdsc{font-size:19px;font-weight:900}
+.tdst{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.tdst.done{color:var(--muted)}.tdst.soon{color:var(--gold2)}
+.tdst.live{color:#fff;background:var(--can);padding:1px 7px;border-radius:8px}
+
+/* ---------- Stadioane ---------- */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:14px}
+.vcard{border:1px solid var(--line);border-radius:0 16px 0 16px;padding:12px 14px;background:rgba(11,11,16,.4)}
+.vtop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.vfl{width:30px;height:auto;border-radius:3px;flex:0 0 auto}
+.vn{font-weight:900;font-size:15px;line-height:1.2}
+.vc{font-size:12.5px;color:var(--muted);font-weight:700}
+.vmeta{display:flex;justify-content:space-between;font-size:12.5px;font-weight:800;color:#d8d8e0;border-top:1px solid var(--line);padding-top:9px}
+
+/* ---------- Statistici goluri ---------- */
+.gschart{padding:6px 14px 12px}
+.gscht,.gssh{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px}
+.gsbars{display:flex;align-items:flex-end;gap:8px;height:110px}
+.gsbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.gsbv{font-size:12px;font-weight:900;color:var(--gold2)}
+.gsbart{width:100%;flex:1;display:flex;align-items:flex-end;background:rgba(255,255,255,.04);border-radius:6px 6px 0 0}
+.gsbf{width:100%;background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:6px 6px 0 0;min-height:3px;transition:height .3s}
+.gsbl{font-size:10.5px;font-weight:800;color:var(--muted)}
+.gssplit{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 14px 6px}
+.gsrow{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:5px 0;border-bottom:1px solid var(--line)}
+.gsrow .flag{width:20px;height:auto}
+.gsrow .gsn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;background:var(--gold);color:#0b0b10;border-radius:7px;font-weight:900;font-size:13px}
+@media(max-width:560px){.gssplit{grid-template-columns:1fr}}
+
 /* ---------- Group cards ---------- */
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
 .gcard{background:rgba(21,21,28,.92);border:1px solid var(--line);border-radius:0 22px 0 22px;overflow:hidden;backdrop-filter:blur(2px)}
@@ -799,6 +853,7 @@ const KO=[
 [104,'final','W101','W102','2026-07-19','15:00','MET']
 ];
 const STAGES=[
+ {key:'today',label:'Azi',color:'#ff6b35'},
  {key:'groups',label:'Grupe',color:'#c8a24b'},
  {key:'r32',label:'Saisprezecimi',color:'#e61d25'},
  {key:'r16',label:'Optimi',color:'#3cac3b'},
@@ -806,6 +861,7 @@ const STAGES=[
  {key:'sf',label:'Semifinale',color:'#ff3eb5'},
  {key:'final',label:'Finala',color:'#ff6b35'},
  {key:'scorers',label:'Marcatori',color:'#f6b40e'},
+ {key:'venues',label:'Stadioane',color:'#3cac3b'},
  {key:'stats',label:'Statistici',color:'#00c2de'}
 ];
 const STAGE_NAME={r32:'Saisprezecimi',r16:'Optimi',qf:'Sfert de finala',sf:'Semifinala',third:'Finala mica',final:'FINALA'};
@@ -1077,7 +1133,144 @@ function statsView(){
     </table>
     <div class="minfo" style="padding:10px 14px">Pozitia fiecarei echipe in topul tuturor celor 48 apare in fisa echipei (click pe nume).</div>
   </div>`;
-  return cards+big+`<div class="statswrap">${favCard}${surpriseView()}</div>`;
+  return cards+big+goalStatsSection()+`<div class="statswrap">${favCard}${surpriseView()}</div>`;
+}
+
+/* ================= STATISTICI GOLURI (din openfootball, goalsMap) ================= */
+function goalStatsData(){
+  if(!goalsMap)return null;
+  let total=0,pens=0,ogs=0,matches=0;
+  const buckets={'1-15':0,'16-30':0,'31-45':0,'46-60':0,'61-75':0,'76-90':0};
+  const perMatch=[],hattricks=[];
+  for(const id in goalsMap){
+    const g=goalsMap[id], all=g.h.concat(g.a);
+    if(!all.length)continue;
+    matches++; perMatch.push({id,n:all.length});
+    all.forEach(x=>{ total++; if(x.pen)pens++; if(x.og)ogs++;
+      const base=parseInt(x.minute,10)||0, stop=String(x.minute).includes('+');
+      let b; if(stop)b=base<=45?'31-45':'76-90';
+      else if(base<=15)b='1-15'; else if(base<=30)b='16-30'; else if(base<=45)b='31-45';
+      else if(base<=60)b='46-60'; else if(base<=75)b='61-75'; else b='76-90';
+      buckets[b]++;
+    });
+    [g.h,g.a].forEach(arr=>{const c={};arr.forEach(x=>{if(!x.og)c[x.name]=(c[x.name]||0)+1;});for(const nm in c)if(c[nm]>=3)hattricks.push({name:nm,n:c[nm],id});});
+  }
+  perMatch.sort((a,b)=>b.n-a.n);
+  return {total,pens,ogs,matches,avg:matches?total/matches:0,buckets,top:perMatch.slice(0,5),hattricks};
+}
+function goalStatsSection(){
+  const d=goalStatsData();
+  if(!d||!d.matches)return '';
+  const order=['1-15','16-30','31-45','46-60','61-75','76-90'];
+  const maxB=Math.max(...order.map(b=>d.buckets[b]),1);
+  const bars=order.map(b=>`<div class="gsbar"><span class="gsbv">${d.buckets[b]}</span><div class="gsbart"><div class="gsbf" style="height:${Math.round(d.buckets[b]/maxB*100)}%"></div></div><div class="gsbl">${b}'</div></div>`).join('');
+  const topM=d.top.map(x=>{const g=goalsMap[x.id],sc=getScore(x.id);return `<div class="gsrow"><span class="gsn">${x.n}</span> ${flag(g.home)}${tname(g.home)} <b>${sc?sc[0]+'–'+sc[1]:''}</b> ${tname(g.away)}${flag(g.away)}</div>`;}).join('');
+  const hat=d.hattricks.length?d.hattricks.map(x=>`<div class="gsrow">&#9917;&#9917;&#9917; <b>${x.name}</b> &middot; ${x.n} goluri</div>`).join(''):'<div class="gsrow" style="color:var(--muted)">Niciun hattrick inca</div>';
+  return `<div class="gcard" style="margin-bottom:16px"><div class="ghead acc0"><span>&#9917; Statistici goluri</span><small>${d.matches} MECIURI &middot; din openfootball</small></div>
+    <div class="stgrid" style="padding:14px 14px 4px">
+      <div class="stcard"><div class="v">${d.total}</div><div class="l">Goluri total</div></div>
+      <div class="stcard"><div class="v" style="color:var(--gold2)">${d.avg.toFixed(2)}</div><div class="l">Medie / meci</div></div>
+      <div class="stcard"><div class="v" style="color:#9badff">${d.pens}</div><div class="l">Din penalty</div></div>
+      <div class="stcard"><div class="v" style="color:#ff9b6b">${d.ogs}</div><div class="l">Autogoluri</div></div>
+    </div>
+    <div class="gschart"><div class="gscht">Cand se marcheaza (pe minute)</div><div class="gsbars">${bars}</div></div>
+    <div class="gssplit">
+      <div><div class="gssh">Meciuri cu cele mai multe goluri</div>${topM}</div>
+      <div><div class="gssh">Hattrick-uri</div>${hat}</div>
+    </div>
+    <div class="minfo" style="padding:8px 14px 14px">Sursa: openfootball (actualizat ~o data/zi, deci poate fi in urma cu ~1 zi).</div>
+  </div>`;
+}
+
+/* ================= SCENARII DE CALIFICARE (brute force, locurile 1-2) =================
+   Enumeram toate rezultatele posibile (W/D/L) ale meciurilor ramase din grupa si stabilim,
+   pe PUNCTE, daca o echipa e calificata sigur (top2 in TOATE scenariile, cu egalitatile la
+   puncte rezolvate impotriva ei), eliminata (top2 in NICIO scenarie) sau inca in cursa. */
+function groupScenarios(g){
+  const ms=GM.filter(m=>m[1]===g), teams=GROUPS[g];
+  const remaining=ms.filter(m=>!getScore(m[0]));
+  const base={}; teams.forEach(t=>base[t]=0);
+  ms.forEach(m=>{const s=getScore(m[0]); if(!s)return; if(s[0]>s[1])base[m[2]]+=3; else if(s[1]>s[0])base[m[3]]+=3; else{base[m[2]]++;base[m[3]]++;}});
+  const n=remaining.length, ownIdx={}; teams.forEach(t=>ownIdx[t]=[]);
+  remaining.forEach((m,i)=>{ownIdx[m[2]].push({i,side:'h'});ownIdx[m[3]].push({i,side:'a'});});
+  const res={}; teams.forEach(t=>res[t]={pts:base[t],left:ownIdx[t].length,guar:true,poss:false,wb:{W:0,D:0,L:0}});
+  const total=Math.pow(3,n);
+  for(let c=0;c<total;c++){
+    const pts=Object.assign({},base), outs=[]; let x=c;
+    for(let i=0;i<n;i++){const o=x%3;x=(x-o)/3;outs[i]=o;const m=remaining[i];
+      if(o===0)pts[m[2]]+=3; else if(o===1){pts[m[2]]++;pts[m[3]]++;} else pts[m[3]]+=3;}
+    teams.forEach(t=>{
+      let above=0,equal=0;
+      teams.forEach(u=>{if(u===t)return; if(pts[u]>pts[t])above++; else if(pts[u]===pts[t])equal++;});
+      const worst=above+equal+1, best=above+1, r=res[t];
+      if(worst>2)r.guar=false; if(best<=2)r.poss=true;
+      if(r.left===1){const oi=ownIdx[t][0],o=outs[oi.i];
+        const own=(o===1)?'D':(((o===0)===(oi.side==='h'))?'W':'L');
+        if(worst>r.wb[own])r.wb[own]=worst;}
+    });
+  }
+  return {n,teams,res};
+}
+function scenariosCard(){
+  const groups=Object.keys(GROUPS).filter(g=>{const ms=GM.filter(m=>m[1]===g);return ms.some(m=>getScore(m[0]))&&!groupDone(g);});
+  if(!groups.length)return '';
+  const blocks=groups.map(g=>{
+    const sc=groupScenarios(g);
+    const rows=GROUPS[g].slice().sort((a,b)=>sc.res[b].pts-sc.res[a].pts).map(t=>{
+      const r=sc.res[t]; let badge,cls,hint='';
+      if(r.guar){badge='&#9989; Calificata';cls='qok';}
+      else if(!r.poss){badge='&#10060; Eliminata';cls='qout';}
+      else{badge='&#9898; In cursa';cls='qmid';
+        if(r.left===1){ if(r.wb.D<=2)hint='un egal ii ajunge'; else if(r.wb.W<=2)hint='victoria o califica'; else hint='victorie + alte rezultate'; }
+      }
+      return `<div class="scrow ${cls}">${flag(t)}<span class="sct">${tname(t)}</span><span class="scp">${r.pts}p</span><span class="scb">${badge}</span>${hint?`<span class="sch">${hint}</span>`:''}</div>`;
+    }).join('');
+    return `<div class="scgrp"><div class="scgh">Grupa ${g}</div>${rows}</div>`;
+  }).join('');
+  return `<div class="gcard"><div class="ghead acc1"><span>&#129518; Scenarii de calificare</span><small>LOCURILE 1-2</small></div>
+    <div class="scgrid">${blocks}</div>
+    <div class="minfo" style="padding:10px 14px 14px">Calculat pe puncte, pentru primele 2 locuri (calificare directa). La egalitate de puncte conteaza golaverajul, neinclus aici &ndash; deci o echipa "in cursa" poate fi de fapt deja calificata pe golaveraj. Locul 3 depinde de celelalte grupe (vezi tabelul locurilor 3).</div>
+  </div>`;
+}
+
+/* ================= VEDERE "AZI" ================= */
+function roDay(ms){const d=new Date(ms+3*3600*1000);return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate();}
+function todayView(){
+  const today=roDay(Date.now());
+  const all=[];
+  GM.forEach(m=>all.push({id:m[0],lab:'Grupa '+m[1],hc:m[2],ac:m[3],date:m[4],time:m[5],v:m[6],ts:matchTs(m)}));
+  KO.forEach(k=>{const {ta,tb}=koTeams(k[0]);all.push({id:k[0],lab:STAGE_NAME[k[1]],hc:ta,ac:tb,date:k[4],time:k[5],v:k[6],ts:matchTs(k)});});
+  let day=all.filter(x=>roDay(x.ts)===today), heading='Meciurile de azi';
+  if(!day.length){
+    const fut=all.filter(x=>x.ts>=Date.now()).sort((a,b)=>a.ts-b.ts);
+    if(fut.length){const nd=roDay(fut[0].ts);day=all.filter(x=>roDay(x.ts)===nd);heading='Urmatoarele meciuri';}
+  }
+  day.sort((a,b)=>a.ts-b.ts);
+  const side=c=>c?`${flag(c)}<b>${tname(c)}</b>`:`<span class="ph">?</span>`;
+  const rows=day.map(x=>{
+    const ti=timeInfo(x.date,x.time,x.v), s=getScore(x.id), live=liveData[x.id];
+    let mid;
+    if(s)mid=`<span class="tdsc">${s[0]} – ${s[1]}</span><span class="tdst done">terminat</span>`;
+    else if(live)mid=`<span class="tdsc">${live.h} – ${live.a}</span><span class="tdst live">&#9679; LIVE</span>`;
+    else mid=`<span class="tdst soon">RO ${ti.ro}</span>`;
+    return `<div class="tdrow"><div class="tdlab">${x.lab} &middot; ${ti.vf}${ti.city}</div>
+      <div class="tdmatch"><div class="tdside h">${side(x.hc)}</div><div class="tdmid">${mid}</div><div class="tdside a">${side(x.ac)}</div></div></div>`;
+  }).join('');
+  return `<div class="gcard"><div class="ghead acc2"><span>&#128197; ${heading}</span><small>${day.length} ${day.length===1?'MECI':'MECIURI'}</small></div>
+    ${rows||'<div class="minfo" style="padding:16px">Nu sunt meciuri programate.</div>'}</div>`;
+}
+
+/* ================= VEDERE STADIOANE ================= */
+function venuesView(){
+  const cnt={}; Object.keys(V).forEach(k=>cnt[k]=0);
+  GM.forEach(m=>cnt[m[6]]++); KO.forEach(k=>cnt[k[6]]++);
+  const cards=Object.keys(V).sort((a,b)=>V[b][3]-V[a][3]).map(k=>{const v=V[k];
+    const cap=String(v[3]).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    return `<div class="vcard"><div class="vtop"><img class="vfl" src="https://flagcdn.com/w40/${v[4]}.png" alt=""><div class="vnames"><div class="vn">${v[0]}</div><div class="vc">${v[1]}</div></div></div>
+      <div class="vmeta"><span>&#128101; ${cap}</span><span>&#9917; ${cnt[k]} meciuri</span></div></div>`;
+  }).join('');
+  return `<div class="gcard"><div class="ghead acc3"><span>&#127967; Stadioane</span><small>16 ARENE &middot; SUA / CANADA / MEXIC</small></div>
+    <div class="vgrid">${cards}</div></div>`;
 }
 /* ================= URMATOARELE MECIURI ================= */
 /* lista meciurilor nejucate, in ordine cronologica reala (UTC) - folosita si de meciul zilei */
@@ -3160,9 +3353,11 @@ function render(){
       onclick="window.__activeTab='${s.key}';render()">${s.label}</div>`;
   }).join('');
   let html='';
+  html+=`<div class="view ${active==='today'?'active':''}">${todayView()}</div>`;
   html+=`<div class="view ${active==='groups'?'active':''}">
     <div class="legend">Calificare: <i style="background:var(--mex)"></i>Locurile 1-2 direct <i style="background:#f6b40e"></i>Locul 3 - intra in clasamentul locurilor 3 (primele 8 din 12 se califica)</div>
     <div class="groups">${Object.keys(GROUPS).map((g,i)=>groupCard(g,i)).join('')}</div>
+    ${scenariosCard()}
     <div class="botrow">${thirdTable()}${upcomingCard()}</div>
   </div>`;
   ['r32','r16','qf','sf'].forEach(st=>{
@@ -3183,6 +3378,7 @@ function render(){
     ${champ}
   </div>`;
   html+=`<div class="view ${active==='scorers'?'active':''}">${scorersView()}</div>`;
+  html+=`<div class="view ${active==='venues'?'active':''}">${venuesView()}</div>`;
   html+=`<div class="view ${active==='stats'?'active':''}">${statsView()}</div>`;
   document.getElementById('views').innerHTML=html;
   if(active==='scorers')loadScorers(false);   /* incarca lazy la deschiderea tab-ului */
