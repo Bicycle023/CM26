@@ -300,6 +300,13 @@ h1 span{background:linear-gradient(90deg,var(--gold2),var(--pink),var(--teal));-
 .tgrwrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 6px}
 .tgr{background:rgba(200,162,75,.12);border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12.5px;font-weight:700}
 
+/* ---------- Nota de performanta ---------- */
+.mgrade{display:flex;align-items:center;justify-content:center;gap:12px;padding:0 16px 11px}
+.ng{font-weight:900;color:#0b0b10;border-radius:7px;padding:2px 9px;min-width:36px;text-align:center;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+.mgrade .ngl{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1.5px}
+.gsrow .ng{margin-right:2px}
+.ngsub{color:var(--muted);font-weight:600;font-size:11.5px}
+
 /* ---------- Group cards ---------- */
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
 .gcard{background:rgba(21,21,28,.92);border:1px solid var(--line);border-radius:0 22px 0 22px;overflow:hidden;backdrop-filter:blur(2px)}
@@ -997,10 +1004,24 @@ function outcomeOf(mid){
   const s=getScore(mid); if(!s)return null;
   return s[0]>s[1]?'h':(s[1]>s[0]?'a':'d');
 }
-function sBadge(p,isFav){
+/* "scor surpriza": cat de mare a fost surpriza. Pleaca de la cat de improbabil era rezultatul
+   (100 - sansa lui %), apoi AMPLIFICA dupa diferenta de goluri - un 4-0 al outsiderului e soc
+   mai mare decat un 1-0 cu aceleasi sanse. Egalurile (margine 0) nu se amplifica. */
+function surpriseScore(p,margin){
+  let s=100-p;
+  if(margin>1)s+=Math.min(21,(margin-1)*7);   /* +7 / gol peste primul, max +21 (de la 4 goluri) */
+  return Math.min(100,Math.round(s));
+}
+/* praguri pe scor: 85+ soc, 75+ surpriza, 60+ contra cotelor */
+function surpriseTier(p,margin){
+  const s=surpriseScore(p,margin);
+  return s>=85?'soc':s>=75?'sur':s>=60?'out':'';
+}
+function sBadge(p,isFav,margin){
   if(isFav)return '<span class="sbadge sb-fav">&#10003; favorita</span>';
-  if(p<15)return `<span class="sbadge sb-soc">&#128165; SOC ${p}%</span>`;
-  if(p<25)return `<span class="sbadge sb-sur">&#9889; surpriza ${p}%</span>`;
+  const t=surpriseTier(p,margin||0);
+  if(t==='soc')return `<span class="sbadge sb-soc">&#128165; SOC ${p}%</span>`;
+  if(t==='sur')return `<span class="sbadge sb-sur">&#9889; surpriza ${p}%</span>`;
   return `<span class="sbadge sb-out">&#8599; contra cotelor ${p}%</span>`;
 }
 function probRow(a,b,mid){
@@ -1008,8 +1029,8 @@ function probRow(a,b,mid){
   const o=outcomeOf(mid);
   let badge='';
   if(o){
-    const p=o==='h'?H:o==='d'?D:A;
-    badge=sBadge(p,p===Math.max(H,D,A));
+    const p=o==='h'?H:o==='d'?D:A, sc=getScore(mid);
+    badge=sBadge(p,p===Math.max(H,D,A), sc?Math.abs(sc[0]-sc[1]):0);
   }
   return `<div class="prob" title="Probabilitati estimate din ratingurile Elo${o?' - chenarul marcheaza rezultatul implinit':''}">
     <span class="pc h ${o==='h'?'hit':''}">${H}%</span>
@@ -1026,8 +1047,8 @@ function koProbRow(a,b,id){
   const side=r?(r.winner===a?'h':'a'):null;
   let badge='';
   if(side){
-    const p=side==='h'?qh:qa;
-    badge=sBadge(p,p>=50);
+    const p=side==='h'?qh:qa, sc=getScore(id);
+    badge=sBadge(p,p>=50, sc?Math.abs(sc[0]-sc[1]):0);
   }
   return `<div class="prob kprob" title="Sanse de calificare estimate din ratingurile Elo (egalul se imparte prin penalty-uri)">
     <span class="pc h ${side==='h'?'hit':''}">${qh}%</span>
@@ -1050,8 +1071,11 @@ function surpriseList(){
     const o=outcomeOf(m[0]); if(!o)return;
     const [H,D,A]=pget(m[2],m[3],m[0]);
     const p=o==='h'?H:o==='d'?D:A;
-    if(p>=25)return;
+    if(p===Math.max(H,D,A))return;   /* rezultatul favorit nu e surpriza, oricat de mare ar fi scorul */
     const s=getScore(m[0]);
+    const margin=o==='d'?0:Math.abs(s[0]-s[1]);
+    const sc=surpriseScore(p,margin);
+    if(sc<75)return;
     let txt;
     if(o==='d'){
       txt=`egal neasteptat: ${flag(m[2])}${tname(m[2])} ${s[0]} - ${s[1]} ${tname(m[3])}${flag(m[3])}`;
@@ -1060,7 +1084,7 @@ function surpriseList(){
       const ws=o==='h'?s[0]:s[1], ls=o==='h'?s[1]:s[0];
       txt=`${flag(w)}<b>${tname(w)}</b> a invins-o cu ${ws} - ${ls} pe ${flag(l)}${tname(l)}`;
     }
-    items.push({p,txt:`Grupa ${m[1]} &middot; M${m[0]}: ${txt}`});
+    items.push({p,s:sc,txt:`Grupa ${m[1]} &middot; M${m[0]}: ${txt}`});
   });
   KO.forEach(k=>{
     const r=koResult(k[0]); if(!r)return;
@@ -1068,9 +1092,11 @@ function surpriseList(){
     const [H,D]=pget(ta,tb,k[0]);
     const qh=Math.round(H+D/2);
     const p=r.winner===ta?qh:100-qh;
-    if(p>=25)return;
+    if(p>=50)return;   /* favorita la calificare nu e surpriza */
     const s=getScore(k[0]);
-    items.push({p,txt:`${STAGE_NAME[k[1]]} &middot; M${k[0]}: ${flag(r.winner)}<b>${tname(r.winner)}</b> o elimina pe ${flag(r.loser)}${tname(r.loser)} (${s[0]} - ${s[1]}${r.pens?', pen.':''})`});
+    const sc=surpriseScore(p,Math.abs(s[0]-s[1]));
+    if(sc<75)return;
+    items.push({p,s:sc,txt:`${STAGE_NAME[k[1]]} &middot; M${k[0]}: ${flag(r.winner)}<b>${tname(r.winner)}</b> o elimina pe ${flag(r.loser)}${tname(r.loser)} (${s[0]} - ${s[1]}${r.pens?', pen.':''})`});
   });
   Object.keys(GROUPS).forEach(g=>{
     if(!groupDone(g))return;
@@ -1081,35 +1107,34 @@ function surpriseList(){
     const favPos=pos(fav);
     const b8=best8Set();
     if(favPos===3||(favPos===2&&b8&&!b8.has(fav))){
-      items.push({p:8,txt:`Grupa ${g}: favorita ${flag(fav)}<b>${tname(fav)}</b> a fost eliminata din grupe (locul ${favPos+1})`});
+      items.push({p:8,s:92,txt:`Grupa ${g}: favorita ${flag(fav)}<b>${tname(fav)}</b> a fost eliminata din grupe (locul ${favPos+1})`});
     }
     if(pos(low)===0){
-      items.push({p:12,txt:`Grupa ${g}: outsiderul ${flag(low)}<b>${tname(low)}</b> a castigat grupa`});
+      items.push({p:12,s:88,txt:`Grupa ${g}: outsiderul ${flag(low)}<b>${tname(low)}</b> a castigat grupa`});
     }
   });
-  return items.sort((x,y)=>x.p-y.p);
+  return items.sort((x,y)=>y.s-x.s);
 }
 function surpriseView(){
   const items=surpriseList();
   const rows=items.length
-    ?items.map(it=>`<div class="surrow"><span class="si">${it.p<15?'\u{1F4A5}':'⚡'}</span><span>${it.txt}</span><span class="sp">${it.p}% sanse</span></div>`).join('')
+    ?items.map(it=>`<div class="surrow"><span class="si">${it.s>=85?'\u{1F4A5}':'⚡'}</span><span>${it.txt}</span><span class="sp">${it.s}<small>/100</small></span></div>`).join('')
     :`<div class="surempty"><span class="big">\u{1F52E}</span>Nicio surpriza inca.<br>Pe masura ce introduci scoruri, aici apar automat rezultatele neasteptate.</div>`;
   return `<div class="gcard surcard">
     <div class="ghead surhead"><span>Surprizele turneului</span><small>${items.length} ${items.length===1?'SURPRIZA':'SURPRIZE'}</small></div>
     ${rows}
-    <div class="minfo" style="padding:10px 16px 14px">&#9889; surpriza = rezultat cu sanse sub 25% (Elo) &middot; &#128165; SOC = sub 15% &middot; include si favoritele Elo eliminate din grupe si outsiderii castigatori de grupa. Se actualizeaza automat.</div>
+    <div class="minfo" style="padding:10px 16px 14px">Scor surpriza (0-100): cat de improbabil era rezultatul (Elo) <b>amplificat de diferenta de goluri</b> &middot; &#128165; SOC = 85+ &middot; &#9889; surpriza = 75+ &middot; include si favoritele Elo eliminate din grupe si outsiderii castigatori de grupa.</div>
   </div>`;
 }
 /* ================= STATISTICI ================= */
 function statsData(){
   let played=0,fav=0,out=0,sur=0,soc=0,draws=0,biggest=null;
-  function clas(p,isFav,desc){
+  function clas(p,isFav,desc,margin){
     played++;
-    if(isFav)fav++;
-    else if(p<15)soc++;
-    else if(p<25)sur++;
-    else out++;
-    if(!isFav&&(!biggest||p<biggest.p))biggest={p,desc};
+    if(isFav){fav++;return;}
+    const sc=surpriseScore(p,margin||0);
+    if(sc>=85)soc++; else if(sc>=75)sur++; else out++;
+    if(!biggest||sc>biggest.sc)biggest={p,desc,sc};
   }
   GM.forEach(m=>{
     const o=outcomeOf(m[0]); if(!o)return;
@@ -1120,7 +1145,7 @@ function statsData(){
     const desc=o==='d'
       ?`${flag(m[2])}${tname(m[2])} ${s[0]} - ${s[1]} ${tname(m[3])}${flag(m[3])} (egal, Grupa ${m[1]})`
       :`${flag(o==='h'?m[2]:m[3])}<b>${tname(o==='h'?m[2]:m[3])}</b> bate ${flag(o==='h'?m[3]:m[2])}${tname(o==='h'?m[3]:m[2])} ${s[0]} - ${s[1]} (Grupa ${m[1]})`;
-    clas(p,p===Math.max(H,D,A),desc);
+    clas(p,p===Math.max(H,D,A),desc, o==='d'?0:Math.abs(s[0]-s[1]));
   });
   KO.forEach(k=>{
     const r=koResult(k[0]); if(!r)return;
@@ -1129,9 +1154,57 @@ function statsData(){
     const qh=Math.round(H+D/2);
     const p=r.winner===ta?qh:100-qh;
     const s=getScore(k[0]);
-    clas(p,p>=50,`${flag(r.winner)}<b>${tname(r.winner)}</b> o elimina pe ${flag(r.loser)}${tname(r.loser)} ${s[0]} - ${s[1]}${r.pens?' pen.':''} (${STAGE_NAME[k[1]]})`);
+    clas(p,p>=50,`${flag(r.winner)}<b>${tname(r.winner)}</b> o elimina pe ${flag(r.loser)}${tname(r.loser)} ${s[0]} - ${s[1]}${r.pens?' pen.':''} (${STAGE_NAME[k[1]]})`, Math.abs(s[0]-s[1]));
   });
   return {played,fav,out,sur,soc,draws,biggest};
+}
+/* ================= NOTA DE PERFORMANTA (calculata de noi) =================
+   6.0 = medie. Din rezultat fata de sansele Elo dinainte de meci (puncte asteptate vs reale)
+   + diferenta de goluri. La KO decis la penalty: mic bonus/malus invingatoarei/invinsei.
+   NU sunt note oficiale de jucatori - e estimarea noastra, clar etichetata. */
+function teamGrade(pWin,pDraw,actualPts,margin){
+  const exp=3*pWin+1*pDraw;
+  return Math.max(2.5,Math.min(10, 6 + 1.3*(actualPts-exp) + 0.3*margin));
+}
+function gradeBg(g){ return g>=8?'#3cac3b':g>=6.5?'#8fd14f':g>=5?'#e8c76a':g>=3.5?'#ff9b6b':'#ff7b81'; }
+function matchGrades(id){
+  const gm=GM.find(m=>m[0]===id);
+  let H,A;
+  if(gm){ H=gm[2]; A=gm[3]; }
+  else { const r=koTeams(id); if(!r.ta||!r.tb)return null; H=r.ta; A=r.tb; }
+  const s=getScore(id); if(!s)return null;
+  const [hs,as]=s, pr=pget(H,A,id);
+  let gh=teamGrade(pr[0]/100,pr[1]/100, hs>as?3:(hs<as?0:1), hs-as);
+  let ga=teamGrade(pr[2]/100,pr[1]/100, as>hs?3:(as<hs?0:1), as-hs);
+  if(!gm && hs===as){ const p=state.pens[id]; if(p==='h'){gh+=0.3;ga-=0.3;} else if(p==='a'){ga+=0.3;gh-=0.3;} }
+  gh=Math.max(2.5,Math.min(10,gh)); ga=Math.max(2.5,Math.min(10,ga));
+  return {home:H,away:A,gh:Math.round(gh*10)/10,ga:Math.round(ga*10)/10};
+}
+function matchGradeRow(id){
+  const g=matchGrades(id); if(!g)return '';
+  return `<div class="mgrade"><span class="ng" style="background:${gradeBg(g.gh)}">${g.gh.toFixed(1)}</span><span class="ngl">NOTA</span><span class="ng" style="background:${gradeBg(g.ga)}">${g.ga.toFixed(1)}</span></div>`;
+}
+function allGrades(){
+  const out=[];
+  const add=(id,home,away,lab)=>{const g=matchGrades(id); if(!g)return; const s=getScore(id);
+    out.push({code:home,opp:away,grade:g.gh,my:s[0],ot:s[1],lab});
+    out.push({code:away,opp:home,grade:g.ga,my:s[1],ot:s[0],lab});};
+  GM.forEach(m=>add(m[0],m[2],m[3],'Grupa '+m[1]));
+  KO.forEach(k=>{const r=koTeams(k[0]); if(r.ta&&r.tb)add(k[0],r.ta,r.tb,STAGE_NAME[k[1]]);});
+  return out;
+}
+function gradesView(){
+  const all=allGrades(); if(!all.length)return '';
+  const best=[...all].sort((a,b)=>b.grade-a.grade).slice(0,8);
+  const worst=[...all].sort((a,b)=>a.grade-b.grade).slice(0,8);
+  const row=x=>`<div class="gsrow"><span class="ng" style="background:${gradeBg(x.grade)}">${x.grade.toFixed(1)}</span> ${flag(x.code)}<b>${tname(x.code)}</b> <span class="ngsub">${x.my}–${x.ot} vs ${tname(x.opp)} &middot; ${x.lab}</span></div>`;
+  return `<div class="gcard"><div class="ghead acc1"><span>&#11088; Note de performanta</span><small>CALCULATE</small></div>
+    <div class="gssplit" style="padding-top:8px">
+      <div><div class="gssh">Cele mai bune prestatii</div>${best.map(row).join('')}</div>
+      <div><div class="gssh">Cele mai slabe</div>${worst.map(row).join('')}</div>
+    </div>
+    <div class="minfo" style="padding:8px 14px 14px">Nota = estimarea NOASTRA (6.0 = medie): rezultatul fata de sansele Elo dinainte de meci + diferenta de goluri. NU sunt note oficiale de jucatori.</div>
+  </div>`;
 }
 function statSummary(){
   const d=statsData();
@@ -1139,14 +1212,14 @@ function statSummary(){
   const cards=`<div class="stgrid">
     <div class="stcard"><div class="v">${d.played}</div><div class="l">Meciuri jucate</div><div class="s" style="color:var(--muted)">din 104</div></div>
     <div class="stcard"><div class="v" style="color:#8fd14f">${d.fav}</div><div class="l">&#10003; Favorite confirmate</div><div class="s" style="color:#8fd14f">${d.played?pct+'% acuratete':'-'}</div></div>
-    <div class="stcard"><div class="v" style="color:#9badff">${d.out}</div><div class="l">&#8599; Contra cotelor</div><div class="s" style="color:var(--muted)">25-49%</div></div>
-    <div class="stcard"><div class="v" style="color:#ff9b6b">${d.sur}</div><div class="l">&#9889; Surprize</div><div class="s" style="color:var(--muted)">15-24%</div></div>
-    <div class="stcard"><div class="v" style="color:#ff7b81">${d.soc}</div><div class="l">&#128165; Socuri</div><div class="s" style="color:var(--muted)">sub 15%</div></div>
+    <div class="stcard"><div class="v" style="color:#9badff">${d.out}</div><div class="l">&#8599; Contra cotelor</div><div class="s" style="color:var(--muted)">scor 60-74</div></div>
+    <div class="stcard"><div class="v" style="color:#ff9b6b">${d.sur}</div><div class="l">&#9889; Surprize</div><div class="s" style="color:var(--muted)">scor 75-84</div></div>
+    <div class="stcard"><div class="v" style="color:#ff7b81">${d.soc}</div><div class="l">&#128165; Socuri</div><div class="s" style="color:var(--muted)">scor 85+</div></div>
     <div class="stcard"><div class="v" style="color:#b8b8c4">${d.draws}</div><div class="l">Egaluri</div><div class="s" style="color:var(--muted)">in grupe</div></div>
   </div>`;
   const big=d.biggest?`<div class="gcard surcard" style="margin-bottom:16px">
-    <div class="ghead" style="background:linear-gradient(100deg,#e61d25,#7a0e13);color:#fff"><span>Cel mai mare soc</span><small>${d.biggest.p}% SANSE</small></div>
-    <div class="surrow"><span class="si">\u{1F4A5}</span><span>${d.biggest.desc}</span><span class="sp">${d.biggest.p}%</span></div>
+    <div class="ghead" style="background:linear-gradient(100deg,#e61d25,#7a0e13);color:#fff"><span>Cel mai mare soc</span><small>SCOR ${d.biggest.sc}/100</small></div>
+    <div class="surrow"><span class="si">\u{1F4A5}</span><span>${d.biggest.desc}</span><span class="sp">${d.biggest.sc}</span></div>
   </div>`:'';
   return cards+big;
 }
@@ -1167,11 +1240,12 @@ function favCardHtml(){
 }
 function statsView(){
   const sub=window.__statsTab||'rezumat';
-  const items=[['rezumat','Rezumat'],['goluri','Goluri'],['scenarii','Scenarii'],['clasamente','Clasamente']];
+  const items=[['rezumat','Rezumat'],['goluri','Goluri'],['note','Note'],['scenarii','Scenarii'],['clasamente','Clasamente']];
   const nav=`<div class="substack">`+items.map(([k,l])=>`<button class="subtab ${k===sub?'active':''}" onclick="window.__statsTab='${k}';render()">${l}</button>`).join('')+`</div>`;
   const empty=t=>`<div class="gcard"><div class="minfo" style="padding:18px 16px">${t}</div></div>`;
   let body;
   if(sub==='goluri') body=goalStatsSection()||empty('Inca nu sunt date despre goluri (se incarca din openfootball, care e actualizat ~o data/zi).');
+  else if(sub==='note') body=gradesView()||empty('Notele apar dupa ce se joaca primele meciuri.');
   else if(sub==='scenarii') body=scenariosCard()||empty('Scenariile apar cand exista grupe in desfasurare (cu meciuri jucate, dar neincheiate). Acum nu e cazul.');
   else if(sub==='clasamente') body=`<div class="statswrap">${favCardHtml()}${surpriseView()}</div>`;
   else body=statSummary();
@@ -3322,6 +3396,7 @@ function groupCard(g,idx){
       ${sideHtml(m[3],false,winner,m[0])}
       ${probRow(m[2],m[3],m[0])}
     </div>
+    ${matchGradeRow(m[0])}
     ${matchGoals(m[0])}`;
   }).join('');
   return `<div class="gcard">
@@ -3409,6 +3484,7 @@ function koCard(k){
     </div>
     ${ta&&tb?koProbRow(ta,tb,id):''}
     ${pens}
+    ${matchGradeRow(id)}
     ${matchGoals(id)}
   </div>`;
 }
