@@ -1675,6 +1675,34 @@ function findOurMatch(c1,c2,utcMs){
   KO.forEach(k=>{const r=koTeams(k[0]); if(r.ta&&r.tb)consider(k[0],r.ta,r.tb,matchTs(k));});
   return (best&&bd<=2*864e5)?best:null;
 }
+/* Echipele de locul 3 din saisprezecimi NU pot fi deduse din regulament (alocarea FIFA
+   depinde de combinatia celor 8 grupe calificate), asa ca le citim din perechile REALE
+   ale API-ului: cautam meciul din lista care contine echipa slotului fix (1X/2X); cealalta
+   echipa trebuie sa fie locul 3 in grupa ei, iar grupa - permisa de slotul 3.
+   Returneaza doar asignarile noi/diferite de state.thirds. */
+function autoAssignThirds(list){
+  const out=[];
+  KO.forEach(k=>{
+    if(k[1]!=='r32')return;
+    const a=resolveSlot(k[2],k[0]), b=resolveSlot(k[3],k[0]);
+    const thirdSlot=a.third?a:(b.third?b:null); if(!thirdSlot)return;
+    const fixed=a.third?b:a; if(!fixed.team)return;
+    const ts=matchTs(k);
+    for(const fm of list){
+      if(Math.abs(Date.parse(fm.utcDate)-ts)>2*864e5)continue;
+      const c1=fdCode(fm.homeTeam), c2=fdCode(fm.awayTeam);
+      if(!c1||!c2)continue;
+      const other=c1===fixed.team?c2:(c2===fixed.team?c1:null);
+      if(!other)continue;
+      const g=Object.keys(GROUPS).find(x=>GROUPS[x].includes(other));
+      if(!g||!thirdSlot.third.includes(g))continue;
+      if(!groupDone(g)||standings(g)[2].t!==other)continue;
+      if(state.thirds[k[0]]!==other)out.push({id:k[0],team:other});
+      break;
+    }
+  });
+  return out;
+}
 /* ---- notificari locale (FARA server): gol / start meci / final, cat timp aplicatia e deschisa ---- */
 let notifPrevLive={}, notifReady=false;
 function notifSupported(){ return typeof Notification!=='undefined'; }
@@ -1714,7 +1742,7 @@ async function syncScores(manual){
     const newLive={};
     const finals=[];
     let changed=false, pushed=false;
-    list.forEach(fm=>{
+    const applyOne=fm=>{
       const c1=fdCode(fm.homeTeam), c2=fdCode(fm.awayTeam);
       if(!c1||!c2)return;
       const mm=findOurMatch(c1,c2,Date.parse(fm.utcDate)); if(!mm)return;
@@ -1739,7 +1767,21 @@ async function syncScores(manual){
         if(Number.isInteger(H)&&Number.isInteger(A))newLive[mm.id]={h:H,a:A,status:st,th:mm.home,ta:mm.away,
           ko:Date.parse(fm.utcDate),min:(typeof fm.minute==='number'?fm.minute:null)};
       }
-    });
+    };
+    list.forEach(applyOne);
+    /* echipele de locul 3 se pot afla abia DUPA ce scorurile grupelor au intrat (bucla de mai
+       sus), apoi o a doua trecere ca meciurile KO proaspat corelate sa-si primeasca scorurile
+       (protectiile din applyOne previn dublarea notificarilor/istoricului) */
+    const th=autoAssignThirds(list);
+    if(th.length){
+      if(!pushed){pushHistory();pushed=true;}
+      th.forEach(x=>{
+        for(const oid in state.thirds){ if(+oid!==x.id&&state.thirds[oid]===x.team)delete state.thirds[oid]; }
+        state.thirds[x.id]=x.team;
+      });
+      changed=true;
+      list.forEach(applyOne);
+    }
     /* notificari locale: final / start meci / gol (prima sincronizare = baseline, fara notificari) */
     if(notifsOn() && notifReady){
       finals.forEach(f=>fireNotif('⏱️ Final de meci',`${tname(f.th)} ${f.H}–${f.A} ${tname(f.ta)}`,'final-'+f.th+f.ta));
