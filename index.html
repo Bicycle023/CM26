@@ -1746,8 +1746,18 @@ async function syncScores(manual){
       const c1=fdCode(fm.homeTeam), c2=fdCode(fm.awayTeam);
       if(!c1||!c2)return;
       const mm=findOurMatch(c1,c2,Date.parse(fm.utcDate)); if(!mm)return;
-      const ft=(fm.score&&fm.score.fullTime)||{};
-      const g={}; g[c1]=ft.home; g[c2]=ft.away;
+      const sc=fm.score||{}, ft=sc.fullTime||{};
+      /* la meciurile decise la penalty-uri API-ul include golurile din departajare in fullTime
+         (ex. 1-1 + pen 3-4 => fullTime 4-5); scadem penalty-urile ca sa ramana scorul real dupa
+         120 min. Guard: doar daca scaderea da un egal valid (alt feed poate da fullTime fara pen). */
+      let fh=ft.home, fa=ft.away;
+      if(sc.duration==='PENALTY_SHOOTOUT'&&sc.penalties
+         &&Number.isInteger(sc.penalties.home)&&Number.isInteger(sc.penalties.away)
+         &&Number.isInteger(fh)&&Number.isInteger(fa)&&fh!==fa){
+        const rh=fh-sc.penalties.home, ra=fa-sc.penalties.away;
+        if(rh>=0&&ra>=0&&rh===ra){fh=rh;fa=ra;}
+      }
+      const g={}; g[c1]=fh; g[c2]=fa;
       const H=g[mm.home], A=g[mm.away], st=fm.status;
       if(st==='FINISHED'||st==='AWARDED'){
         if(!Number.isInteger(H)||!Number.isInteger(A))return;
@@ -1757,8 +1767,11 @@ async function syncScores(manual){
         if(cur&&cur[0]===H&&cur[1]===A){state.auto[mm.id]=1;return;}
         if(!pushed){pushHistory();pushed=true;}
         state.scores[mm.id]=[H,A]; state.auto[mm.id]=1;
-        if(H===A && fm.score && fm.score.winner){
-          const w=fm.score.winner, wc=w==='HOME_TEAM'?c1:(w==='AWAY_TEAM'?c2:null);
+        if(H===A){
+          const p=sc.penalties;
+          const w=sc.winner||(p&&Number.isInteger(p.home)&&Number.isInteger(p.away)&&p.home!==p.away
+                              ?(p.home>p.away?'HOME_TEAM':'AWAY_TEAM'):null);
+          const wc=w==='HOME_TEAM'?c1:(w==='AWAY_TEAM'?c2:null);
           if(wc)state.pens[mm.id]=(wc===mm.home?'h':'a');
         }
         changed=true;
